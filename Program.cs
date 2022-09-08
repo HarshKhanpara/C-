@@ -3,166 +3,247 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 
-struct Object
+namespace PingPong
 {
-    public int x;
-    public int y;
-    public char c;
-    public ConsoleColor color;
-}
+    class Program
+    {
+        static int firstPlayerPadSize = 10;
+        static int secondPlayerPadSize = 4;
+        static int ballPositionX = 0;
+        static int ballPositionY = 0;
+        static bool ballDirectionUp = true; // Determines if the ball direction is up
+        static bool ballDirectionRight = false;
+        static int firstPlayerPosition = 0;
+        static int secondPlayerPosition = 0;
+        static int firstPlayerResult = 0;
+        static int secondPlayerResult = 0;
+        static Random randomGenerator = new Random();
 
-class Program
-{
-    static void PrintOnPosition(int x, int y, char c,
-        ConsoleColor color = ConsoleColor.Gray)
-    {
-        Console.SetCursorPosition(x, y);
-        Console.ForegroundColor = color;
-        Console.Write(c);
-    }
-    static void PrintStringOnPosition(int x, int y, string str,
-        ConsoleColor color = ConsoleColor.Gray)
-    {
-        Console.SetCursorPosition(x, y);
-        Console.ForegroundColor = color;
-        Console.Write(str);
-    }
-    static void Main()
-    {
-        double speed = 100.0;
-        double acceleration = 0.5;
-        int playfieldWidth = 5;
-        int livesCount = 5;
-        Console.BufferHeight = Console.WindowHeight = 20;
-        Console.BufferWidth = Console.WindowWidth = 30;
-        Object userCar = new Object();
-        userCar.x = 2;
-        userCar.y = Console.WindowHeight - 1;
-        userCar.c = '@';
-        userCar.color = ConsoleColor.Yellow;
-        Random randomGenerator = new Random();
-        List<Object> objects = new List<Object>();
-        while (true)
+        static void RemoveScrollBars()
         {
-            speed += acceleration;
-            if (speed > 400)
-            {
-                speed = 400;
-            }
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.BufferHeight = Console.WindowHeight;
+            Console.BufferWidth = Console.WindowWidth;
+        }
 
-            bool hitted = false;
+        static void DrawFirstPlayer()
+        {
+            for (int y = firstPlayerPosition; y < firstPlayerPosition + firstPlayerPadSize; y++)
             {
-                int chance = randomGenerator.Next(0, 100);
-                if (chance < 10)
+                PrintAtPosition(0, y, '|');
+                PrintAtPosition(1, y, '|');
+            }
+        }
+
+        static void PrintAtPosition(int x, int y, char symbol)
+        {
+            Console.SetCursorPosition(x, y);
+            Console.Write(symbol);
+        }
+
+        static void DrawSecondPlayer()
+        {
+            for (int y = secondPlayerPosition; y < secondPlayerPosition + secondPlayerPadSize; y++)
+            {
+                PrintAtPosition(Console.WindowWidth - 1, y, '|');
+                PrintAtPosition(Console.WindowWidth - 2, y, '|');
+            }
+        }
+
+        static void SetInitialPositions()
+        {
+            firstPlayerPosition = Console.WindowHeight / 2 - firstPlayerPadSize / 2;
+            secondPlayerPosition = Console.WindowHeight / 2 - secondPlayerPadSize / 2;
+            SetBallAtTheMiddleOfTheGameField();
+        }
+
+        static void SetBallAtTheMiddleOfTheGameField()
+        {
+            ballPositionX = Console.WindowWidth / 2;
+            ballPositionY = Console.WindowHeight / 2;
+        }
+
+        static void DrawBall()
+        {
+            PrintAtPosition(ballPositionX, ballPositionY, '@');
+        }
+
+        static void PrintResult()
+        {
+            Console.SetCursorPosition(Console.WindowWidth / 2 - 1, 0);
+            Console.Write("{0}-{1}", firstPlayerResult, secondPlayerResult);
+        }
+
+        static void MoveFirstPlayerDown()
+        {
+            if (firstPlayerPosition < Console.WindowHeight - firstPlayerPadSize)
+            {
+                firstPlayerPosition++;
+            }
+        }
+
+        static void MoveFirstPlayerUp()
+        {
+            if (firstPlayerPosition > 0)
+            {
+                firstPlayerPosition--;
+            }
+        }
+
+        static void MoveSecondPlayerDown()
+        {
+            if (secondPlayerPosition < Console.WindowHeight - secondPlayerPadSize)
+            {
+                secondPlayerPosition++;
+            }
+        }
+
+        static void MoveSecondPlayerUp()
+        {
+            if (secondPlayerPosition > 0)
+            {
+                secondPlayerPosition--;
+            }
+        }
+
+        static void SecondPlayerAIMove()
+        {
+            int randomNumber = randomGenerator.Next(1, 101);
+            //if (randomNumber == 0)
+            //{
+            //    MoveSecondPlayerUp();
+            //}
+            //if (randomNumber == 1)
+            //{
+            //    MoveSecondPlayerDown();
+            //}
+            if (randomNumber <= 70)
+            {
+                if (ballDirectionUp == true)
                 {
-                    Object newObject = new Object();
-                    newObject.color = ConsoleColor.Cyan;
-                    newObject.c = '-';
-                    newObject.x = randomGenerator.Next(0, playfieldWidth);
-                    newObject.y = 0;
-                    objects.Add(newObject);
-                }
-                else if (chance < 20)
-                {
-                    Object newObject = new Object();
-                    newObject.color = ConsoleColor.Cyan;
-                    newObject.c = '*';
-                    newObject.x = randomGenerator.Next(0, playfieldWidth);
-                    newObject.y = 0;
-                    objects.Add(newObject);
+                    MoveSecondPlayerUp();
                 }
                 else
                 {
-                    Object newCar = new Object();
-                    newCar.color = ConsoleColor.Green;
-                    newCar.x = randomGenerator.Next(0, playfieldWidth);
-                    newCar.y = 0;
-                    newCar.c = '#';
-                    objects.Add(newCar);
+                    MoveSecondPlayerDown();
+                }
+            }
+        }
+
+        private static void MoveBall()
+        {
+            if (ballPositionY == 0)
+            {
+                ballDirectionUp = false;
+            }
+            if (ballPositionY == Console.WindowHeight - 1)
+            {
+                ballDirectionUp = true;
+            }
+            if (ballPositionX == Console.WindowWidth - 1)
+            {
+                SetBallAtTheMiddleOfTheGameField();
+                ballDirectionRight = false;
+                ballDirectionUp = true;
+                firstPlayerResult++;
+                Console.SetCursorPosition(Console.WindowWidth / 2, Console.WindowHeight / 2);
+                Console.WriteLine("First player wins!");
+                Console.ReadKey();
+            }
+            if (ballPositionX == 0)
+            {
+                SetBallAtTheMiddleOfTheGameField();
+                ballDirectionRight = true;
+                ballDirectionUp = true;
+                secondPlayerResult++;
+                Console.SetCursorPosition(Console.WindowWidth / 2, Console.WindowHeight / 2);
+                Console.WriteLine("Second player wins!");
+                Console.ReadKey();
+            }
+
+            if (ballPositionX < 3)
+            {
+                if (ballPositionY >= firstPlayerPosition
+                    && ballPositionY < firstPlayerPosition + firstPlayerPadSize)
+                {
+                    ballDirectionRight = true;
                 }
             }
 
-            while (Console.KeyAvailable)
+            if (ballPositionX >= Console.WindowWidth - 3 - 1)
             {
-                ConsoleKeyInfo pressedKey = Console.ReadKey(true);
-                //while (Console.KeyAvailable) Console.ReadKey(true);
-                if (pressedKey.Key == ConsoleKey.LeftArrow)
+                if (ballPositionY >= secondPlayerPosition
+                    && ballPositionY < secondPlayerPosition + secondPlayerPadSize)
                 {
-                    if (userCar.x - 1 >= 0)
-                    {
-                        userCar.x = userCar.x - 1;
-                    }
-                }
-                else if (pressedKey.Key == ConsoleKey.RightArrow)
-                {
-                    if (userCar.x + 1 < playfieldWidth)
-                    {
-                        userCar.x = userCar.x + 1;
-                    }
+                    ballDirectionRight = false;
                 }
             }
-            List<Object> newList = new List<Object>();
-            for (int i = 0; i < objects.Count; i++)
+
+            if (ballDirectionUp)
             {
-                Object oldCar = objects[i];
-                Object newObject = new Object();
-                newObject.x = oldCar.x;
-                newObject.y = oldCar.y + 1;
-                newObject.c = oldCar.c;
-                newObject.color = oldCar.color;
-                if (newObject.c == '*' && newObject.y == userCar.y && newObject.x == userCar.x)
-                {
-                    speed -= 20;
-                }
-                if (newObject.c == '-' && newObject.y == userCar.y && newObject.x == userCar.x)
-                {
-                    livesCount++;
-                }
-                if (newObject.c == '#' && newObject.y == userCar.y && newObject.x == userCar.x)
-                {
-                    livesCount--;
-                    hitted = true;
-                    speed += 50;
-                    if (speed > 400)
-                    {
-                        speed = 400;
-                    }
-                    if (livesCount <= 0)
-                    {
-                        PrintStringOnPosition(8, 10, "GAME OVER!!!", ConsoleColor.Red);
-                        PrintStringOnPosition(8, 12, "Press [enter] to exit", ConsoleColor.Red);
-                        Console.ReadLine();
-                        Environment.Exit(0);
-                    }
-                }
-                if (newObject.y < Console.WindowHeight)
-                {
-                    newList.Add(newObject);
-                }
-            }
-            objects = newList;
-            Console.Clear();
-            if (hitted)
-            {
-                objects.Clear();
-                PrintOnPosition(userCar.x, userCar.y, 'X', ConsoleColor.Red);
+                ballPositionY--;
             }
             else
             {
-                PrintOnPosition(userCar.x, userCar.y, userCar.c, userCar.color);
-            }
-            foreach (Object car in objects)
-            {
-                PrintOnPosition(car.x, car.y, car.c, car.color);
+                ballPositionY++;
             }
 
-            // Draw info
-            PrintStringOnPosition(8, 4, "Lives: " + livesCount, ConsoleColor.White);
-            PrintStringOnPosition(8, 5, "Speed: " + speed, ConsoleColor.White);
-            PrintStringOnPosition(8, 6, "Acceleration: " + acceleration, ConsoleColor.White);
-            //Console.Beep();
-            Thread.Sleep((int)(600 - speed));
+
+            if (ballDirectionRight)
+            {
+                ballPositionX++;
+            }
+            else
+            {
+                ballPositionX--;
+            }
+        }
+
+        static void Main(string[] args)
+        {
+            RemoveScrollBars();
+            SetInitialPositions();
+            while (true)
+            {
+                if (Console.KeyAvailable)
+                {
+                    ConsoleKeyInfo keyInfo = Console.ReadKey();
+                    if (keyInfo.Key == ConsoleKey.UpArrow)
+                    {
+                        MoveFirstPlayerUp();
+                    }
+                    if (keyInfo.Key == ConsoleKey.DownArrow)
+                    {
+                        MoveFirstPlayerDown();
+                    }
+                }
+                SecondPlayerAIMove();
+                MoveBall();
+                Console.Clear();
+                DrawFirstPlayer();
+                DrawSecondPlayer();
+                DrawBall();
+                PrintResult();
+                Thread.Sleep(60);
+            }
         }
     }
 }
+/*
+|____________________________________ |
+|                1-0                  |
+|                                     |
+|                                     |
+||         *                         *|
+||                                   *|
+||                                   *|
+||                                   *|
+|                                     |
+|                                     |
+|                                     |
+|                                     |
+|                                     |
+|_____________________________________|_
+*/
