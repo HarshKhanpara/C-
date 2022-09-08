@@ -2,248 +2,206 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Collections;
 using System.Threading;
-using System.Threading.Tasks;
 
-namespace PingPong
+namespace Snake
 {
+    struct Position
+    {
+        public int row;
+        public int col;
+        public Position(int row, int col)
+        {
+            this.row = row;
+            this.col = col;
+        }
+    }
+
     class Program
     {
-        static int firstPlayerPadSize = 10;
-        static int secondPlayerPadSize = 4;
-        static int ballPositionX = 0;
-        static int ballPositionY = 0;
-        static bool ballDirectionUp = true; // Determines if the ball direction is up
-        static bool ballDirectionRight = false;
-        static int firstPlayerPosition = 0;
-        static int secondPlayerPosition = 0;
-        static int firstPlayerResult = 0;
-        static int secondPlayerResult = 0;
-        static Random randomGenerator = new Random();
-
-        static void RemoveScrollBars()
+        static void Main(string[] args)
         {
-            Console.ForegroundColor = ConsoleColor.Yellow;
+            byte right = 0;
+            byte left = 1;
+            byte down = 2;
+            byte up = 3;
+            int lastFoodTime = 0;
+            int foodDissapearTime = 8000;
+            int negativePoints = 0;
+
+            Position[] directions = new Position[]
+            {
+                new Position(0, 1), // right
+                new Position(0, -1), // left
+                new Position(1, 0), // down
+                new Position(-1, 0), // up
+            };
+            double sleepTime = 100;
+            int direction = right;
+            Random randomNumbersGenerator = new Random();
             Console.BufferHeight = Console.WindowHeight;
-            Console.BufferWidth = Console.WindowWidth;
-        }
+            lastFoodTime = Environment.TickCount;
 
-        static void DrawFirstPlayer()
-        {
-            for (int y = firstPlayerPosition; y < firstPlayerPosition + firstPlayerPadSize; y++)
+            List<Position> obstacles = new List<Position>()
             {
-                PrintAtPosition(0, y, '|');
-                PrintAtPosition(1, y, '|');
+                new Position(12, 12),
+                new Position(14, 20),
+                new Position(7, 7),
+                new Position(19, 19),
+                new Position(6, 9),
+            };
+            foreach (Position obstacle in obstacles)
+            {
+                Console.ForegroundColor = ConsoleColor.Cyan;
+                Console.SetCursorPosition(obstacle.col, obstacle.row);
+                Console.Write("=");
             }
-        }
 
-        static void PrintAtPosition(int x, int y, char symbol)
-        {
-            Console.SetCursorPosition(x, y);
-            Console.Write(symbol);
-        }
-
-        static void DrawSecondPlayer()
-        {
-            for (int y = secondPlayerPosition; y < secondPlayerPosition + secondPlayerPadSize; y++)
+            Queue<Position> snakeElements = new Queue<Position>();
+            for (int i = 0; i <= 5; i++)
             {
-                PrintAtPosition(Console.WindowWidth - 1, y, '|');
-                PrintAtPosition(Console.WindowWidth - 2, y, '|');
+                snakeElements.Enqueue(new Position(0, i));
             }
-        }
 
-        static void SetInitialPositions()
-        {
-            firstPlayerPosition = Console.WindowHeight / 2 - firstPlayerPadSize / 2;
-            secondPlayerPosition = Console.WindowHeight / 2 - secondPlayerPadSize / 2;
-            SetBallAtTheMiddleOfTheGameField();
-        }
-
-        static void SetBallAtTheMiddleOfTheGameField()
-        {
-            ballPositionX = Console.WindowWidth / 2;
-            ballPositionY = Console.WindowHeight / 2;
-        }
-
-        static void DrawBall()
-        {
-            PrintAtPosition(ballPositionX, ballPositionY, '@');
-        }
-
-        static void PrintResult()
-        {
-            Console.SetCursorPosition(Console.WindowWidth / 2 - 1, 0);
-            Console.Write("{0}-{1}", firstPlayerResult, secondPlayerResult);
-        }
-
-        static void MoveFirstPlayerDown()
-        {
-            if (firstPlayerPosition < Console.WindowHeight - firstPlayerPadSize)
+            Position food;
+            do
             {
-                firstPlayerPosition++;
+                food = new Position(randomNumbersGenerator.Next(0, Console.WindowHeight),
+                    randomNumbersGenerator.Next(0, Console.WindowWidth));
             }
-        }
+            while (snakeElements.Contains(food) || obstacles.Contains(food));
+            Console.SetCursorPosition(food.col, food.row);
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.Write("@");
 
-        static void MoveFirstPlayerUp()
-        {
-            if (firstPlayerPosition > 0)
+            foreach (Position position in snakeElements)
             {
-                firstPlayerPosition--;
+                Console.SetCursorPosition(position.col, position.row);
+                Console.ForegroundColor = ConsoleColor.DarkGray;
+                Console.Write("*");
             }
-        }
 
-        static void MoveSecondPlayerDown()
-        {
-            if (secondPlayerPosition < Console.WindowHeight - secondPlayerPadSize)
+            while (true)
             {
-                secondPlayerPosition++;
-            }
-        }
+                negativePoints++;
 
-        static void MoveSecondPlayerUp()
-        {
-            if (secondPlayerPosition > 0)
-            {
-                secondPlayerPosition--;
-            }
-        }
-
-        static void SecondPlayerAIMove()
-        {
-            int randomNumber = randomGenerator.Next(1, 101);
-            //if (randomNumber == 0)
-            //{
-            //    MoveSecondPlayerUp();
-            //}
-            //if (randomNumber == 1)
-            //{
-            //    MoveSecondPlayerDown();
-            //}
-            if (randomNumber <= 70)
-            {
-                if (ballDirectionUp == true)
+                if (Console.KeyAvailable)
                 {
-                    MoveSecondPlayerUp();
+                    ConsoleKeyInfo userInput = Console.ReadKey();
+                    if (userInput.Key == ConsoleKey.LeftArrow)
+                    {
+                        if (direction != right) direction = left;
+                    }
+                    if (userInput.Key == ConsoleKey.RightArrow)
+                    {
+                        if (direction != left) direction = right;
+                    }
+                    if (userInput.Key == ConsoleKey.UpArrow)
+                    {
+                        if (direction != down) direction = up;
+                    }
+                    if (userInput.Key == ConsoleKey.DownArrow)
+                    {
+                        if (direction != up) direction = down;
+                    }
+                }
+
+                Position snakeHead = snakeElements.Last();
+                Position nextDirection = directions[direction];
+
+                Position snakeNewHead = new Position(snakeHead.row + nextDirection.row,
+                    snakeHead.col + nextDirection.col);
+
+                if (snakeNewHead.col < 0) snakeNewHead.col = Console.WindowWidth - 1;
+                if (snakeNewHead.row < 0) snakeNewHead.row = Console.WindowHeight - 1;
+                if (snakeNewHead.row >= Console.WindowHeight) snakeNewHead.row = 0;
+                if (snakeNewHead.col >= Console.WindowWidth) snakeNewHead.col = 0;
+
+                if (snakeElements.Contains(snakeNewHead) || obstacles.Contains(snakeNewHead))
+                {
+                    Console.SetCursorPosition(0, 0);
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine("Game over!");
+                    int userPoints = (snakeElements.Count - 6) * 100 - negativePoints;
+                    //if (userPoints < 0) userPoints = 0;
+                    userPoints = Math.Max(userPoints, 0);
+                    Console.WriteLine("Your points are: {0}", userPoints);
+                    return;
+                }
+
+                Console.SetCursorPosition(snakeHead.col, snakeHead.row);
+                Console.ForegroundColor = ConsoleColor.DarkGray;
+                Console.Write("*");
+
+                snakeElements.Enqueue(snakeNewHead);
+                Console.SetCursorPosition(snakeNewHead.col, snakeNewHead.row);
+                Console.ForegroundColor = ConsoleColor.Gray;
+                if (direction == right) Console.Write(">");
+                if (direction == left) Console.Write("<");
+                if (direction == up) Console.Write("^");
+                if (direction == down) Console.Write("v");
+
+
+                if (snakeNewHead.col == food.col && snakeNewHead.row == food.row)
+                {
+                    // feeding the snake
+                    do
+                    {
+                        food = new Position(randomNumbersGenerator.Next(0, Console.WindowHeight),
+                            randomNumbersGenerator.Next(0, Console.WindowWidth));
+                    }
+                    while (snakeElements.Contains(food) || obstacles.Contains(food));
+                    lastFoodTime = Environment.TickCount;
+                    Console.SetCursorPosition(food.col, food.row);
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.Write("@");
+                    sleepTime--;
+
+                    Position obstacle = new Position();
+                    do
+                    {
+                        obstacle = new Position(randomNumbersGenerator.Next(0, Console.WindowHeight),
+                            randomNumbersGenerator.Next(0, Console.WindowWidth));
+                    }
+                    while (snakeElements.Contains(obstacle) ||
+                        obstacles.Contains(obstacle) ||
+                        (food.row != obstacle.row && food.col != obstacle.row));
+                    obstacles.Add(obstacle);
+                    Console.SetCursorPosition(obstacle.col, obstacle.row);
+                    Console.ForegroundColor = ConsoleColor.Cyan;
+                    Console.Write("=");
                 }
                 else
                 {
-                    MoveSecondPlayerDown();
+                    // moving...
+                    Position last = snakeElements.Dequeue();
+                    Console.SetCursorPosition(last.col, last.row);
+                    Console.Write(" ");
                 }
-            }
-        }
 
-        private static void MoveBall()
-        {
-            if (ballPositionY == 0)
-            {
-                ballDirectionUp = false;
-            }
-            if (ballPositionY == Console.WindowHeight - 1)
-            {
-                ballDirectionUp = true;
-            }
-            if (ballPositionX == Console.WindowWidth - 1)
-            {
-                SetBallAtTheMiddleOfTheGameField();
-                ballDirectionRight = false;
-                ballDirectionUp = true;
-                firstPlayerResult++;
-                Console.SetCursorPosition(Console.WindowWidth / 2, Console.WindowHeight / 2);
-                Console.WriteLine("First player wins!");
-                Console.ReadKey();
-            }
-            if (ballPositionX == 0)
-            {
-                SetBallAtTheMiddleOfTheGameField();
-                ballDirectionRight = true;
-                ballDirectionUp = true;
-                secondPlayerResult++;
-                Console.SetCursorPosition(Console.WindowWidth / 2, Console.WindowHeight / 2);
-                Console.WriteLine("Second player wins!");
-                Console.ReadKey();
-            }
-
-            if (ballPositionX < 3)
-            {
-                if (ballPositionY >= firstPlayerPosition
-                    && ballPositionY < firstPlayerPosition + firstPlayerPadSize)
+                if (Environment.TickCount - lastFoodTime >= foodDissapearTime)
                 {
-                    ballDirectionRight = true;
-                }
-            }
-
-            if (ballPositionX >= Console.WindowWidth - 3 - 1)
-            {
-                if (ballPositionY >= secondPlayerPosition
-                    && ballPositionY < secondPlayerPosition + secondPlayerPadSize)
-                {
-                    ballDirectionRight = false;
-                }
-            }
-
-            if (ballDirectionUp)
-            {
-                ballPositionY--;
-            }
-            else
-            {
-                ballPositionY++;
-            }
-
-
-            if (ballDirectionRight)
-            {
-                ballPositionX++;
-            }
-            else
-            {
-                ballPositionX--;
-            }
-        }
-
-        static void Main(string[] args)
-        {
-            RemoveScrollBars();
-            SetInitialPositions();
-            while (true)
-            {
-                if (Console.KeyAvailable)
-                {
-                    ConsoleKeyInfo keyInfo = Console.ReadKey();
-                    if (keyInfo.Key == ConsoleKey.UpArrow)
+                    negativePoints = negativePoints + 50;
+                    Console.SetCursorPosition(food.col, food.row);
+                    Console.Write(" ");
+                    do
                     {
-                        MoveFirstPlayerUp();
+                        food = new Position(randomNumbersGenerator.Next(0, Console.WindowHeight),
+                            randomNumbersGenerator.Next(0, Console.WindowWidth));
                     }
-                    if (keyInfo.Key == ConsoleKey.DownArrow)
-                    {
-                        MoveFirstPlayerDown();
-                    }
+                    while (snakeElements.Contains(food) || obstacles.Contains(food));
+                    lastFoodTime = Environment.TickCount;
                 }
-                SecondPlayerAIMove();
-                MoveBall();
-                Console.Clear();
-                DrawFirstPlayer();
-                DrawSecondPlayer();
-                DrawBall();
-                PrintResult();
-                Thread.Sleep(60);
+
+                Console.SetCursorPosition(food.col, food.row);
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.Write("@");
+
+                sleepTime -= 0.01;
+
+                Thread.Sleep((int)sleepTime);
             }
         }
     }
 }
-/*
-|____________________________________ |
-|                1-0                  |
-|                                     |
-|                                     |
-||         *                         *|
-||                                   *|
-||                                   *|
-||                                   *|
-|                                     |
-|                                     |
-|                                     |
-|                                     |
-|                                     |
-|_____________________________________|_
-*/
