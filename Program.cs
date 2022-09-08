@@ -1,454 +1,301 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
+
 class Program
 {
-    const int TetrisWidth = 10;
-    const int TetrisHeight = 16;
-    const int InfoPanelWidth = 10;
-    const int GameWidth = TetrisWidth +
-        InfoPanelWidth + 3;
-    const int GameHeight = TetrisHeight + 2;
-    const char BorderCharacter = (char)219;
-    static int Score = 0;
-    static int Level = 1; // Max level: 9
-    #region Figures
-    static bool[][,] Figures = new bool[8][,]
+    static int left = 0;
+    static int right = 1;
+    static int up = 2;
+    static int down = 3;
+
+
+    static int firstPlayerScore = 0;
+    static int firstPlayerDirection = right;
+    static int firstPlayerColumn = 0; // column
+    static int firstPlayerRow = 0; // row
+
+
+    static int secondPlayerScore = 0;
+    static int secondPlayerDirection = left;
+    static int secondPlayerColumn = 40; // column
+    static int secondPlayerRow = 5; // row
+
+
+    static bool[,] isUsed;
+
+
+    static void Main(string[] args)
     {
-        new bool[,] // ----
-        {
-            { true, true, true, true }
-        },
-        new bool[,] // I
-        {
-            { true },
-            { true },
-            { true },
-            { true }
-        },
-        new bool[,] // J
-        {
-            { true, true, true },
-            { false, false, true }
-        },
-        new bool[,] // L
-        {
-            { true, true, true },
-            { true, false, false }
-        },
-        new bool[,] // O
-        {
-            { true, true },
-            { true, true }
-        },
-        new bool[,] // S
-        {
-            { false, true, true },
-            { true, true, false }
-        },
-        new bool[,] // T
-        {
-            { true, true, true },
-            { false, true, false }
-        },
-        new bool[,] // Z
-        {
-            { true, true, false },
-            { false, true, true }
-        },
-    };
-    #endregion
-    static bool[,] currentFigure;
-    static int currentFigureRow = 0;
-    static int currentFigureCol = 4;
-    static bool[,] nextFigure;
-    static Random random = new Random();
-    static bool[,] gameState = new bool[
-        TetrisHeight, TetrisWidth];
-    static int[] scorePerLines = { 10, 30, 50, 80 };
-    static int[] speedPerLevel = { 800, 700, 600, 500, 400, 300, 200, 100, 50 };
+        SetGameField();
+        StartupScreen();
 
-    static void Main()
-    {
-        Console.OutputEncoding = Encoding.GetEncoding(1252);
-        Console.CursorVisible = false;
-        Console.Title = "Tetris";
-        Console.WindowWidth = GameWidth;
-        Console.BufferWidth = GameWidth;
-        Console.WindowHeight = GameHeight + 1;
-        Console.BufferHeight = GameHeight + 1;
+        isUsed = new bool[Console.WindowWidth, Console.WindowHeight];
 
-        StartNewGame();
-        PrintBorders();
 
-        Task.Run(() =>
-        {
-            while (true)
-            {
-                PlaySound();
-            }
-        });
-
-        while(true)
+        while (true)
         {
             if (Console.KeyAvailable)
             {
-                var key = Console.ReadKey();
-                if (key.Key == ConsoleKey.LeftArrow)
-                {
-                    if (currentFigureCol > 1)
-                    {
-                        currentFigureCol--;
-                    }
-                }
-                else if (key.Key == ConsoleKey.RightArrow)
-                {
-                    if (currentFigureCol + currentFigure.GetLength(1) - 1 < TetrisWidth)
-                    {
-                        currentFigureCol++;
-                    }
-                }
+                ConsoleKeyInfo key = Console.ReadKey(true);
+                ChangePlayerDirection(key);
             }
 
-            if (CollisionDetection())
+
+            MovePlayers();
+
+
+            bool firstPlayerLoses = DoesPlayerLose(firstPlayerRow, firstPlayerColumn);
+            bool secondPlayerLoses = DoesPlayerLose(secondPlayerRow, secondPlayerColumn);
+
+
+            if (firstPlayerLoses && secondPlayerLoses)
             {
-                PlaceCurrentFigure();
-                int removedLines = CheckForFullLines();
-
-                if (removedLines > 0)
-                {
-                    Score += scorePerLines[removedLines - 1] * Level;
-                }
-                
-                Level = Score / 1000 + 1;
-                
-                currentFigure = nextFigure;
-                nextFigure = Figures[random.Next(0, Figures.Length)];
-                currentFigureRow = 1;
-                currentFigureCol = 4;
+                firstPlayerScore++;
+                secondPlayerScore++;
+                Console.WriteLine();
+                Console.WriteLine("Game over");
+                Console.WriteLine("Draw game!!!");
+                Console.WriteLine("Current score: {0} - {1}", firstPlayerScore, secondPlayerScore);
+                ResetGame();
             }
-            else
+            if (firstPlayerLoses)
             {
-                currentFigureRow++;
+                secondPlayerScore++;
+                Console.WriteLine();
+                Console.WriteLine("Game over");
+                Console.WriteLine("Second player wins!!!");
+                Console.WriteLine("Current score: {0} - {1}", firstPlayerScore, secondPlayerScore);
+                ResetGame();
+            }
+            if (secondPlayerLoses)
+            {
+                firstPlayerScore++;
+                Console.WriteLine();
+                Console.WriteLine("Game over");
+                Console.WriteLine("First player wins!!!");
+                Console.WriteLine("Current score: {0} - {1}", firstPlayerScore, secondPlayerScore);
+                ResetGame();
             }
 
-            PrintInfoPanel();
 
-            PrintGameField();
+            isUsed[firstPlayerColumn, firstPlayerRow] = true;
+            isUsed[secondPlayerColumn, secondPlayerRow] = true;
 
-            PrintBorders();
 
-            PrintFigure(currentFigure,
-                currentFigureRow, currentFigureCol);
+            WriteOnPosition(firstPlayerColumn, firstPlayerRow, '*', ConsoleColor.Yellow);
+            WriteOnPosition(secondPlayerColumn, secondPlayerRow, '*', ConsoleColor.Cyan);
 
-            Thread.Sleep(speedPerLevel[Level - 1]);
+
+            Thread.Sleep(100);
         }
     }
 
-    static int CheckForFullLines()
-    {
-        int linesRemoved = 0;
 
-        for (int row = 0; row < gameState.GetLength(0); row++)
+    static void StartupScreen()
+    {
+        string heading = "A simple tron-like game";
+        Console.CursorLeft = Console.BufferWidth / 2 - heading.Length / 2;
+        Console.WriteLine(heading);
+
+
+        Console.ForegroundColor = ConsoleColor.Yellow;
+        Console.WriteLine("Player 1's controls:\n");
+        Console.WriteLine("W - Up");
+        Console.WriteLine("A - Left");
+        Console.WriteLine("S - Down");
+        Console.WriteLine("D - Right");
+
+        string longestString = "Player 2's controls:";
+        int cursorLeft = Console.BufferWidth - longestString.Length;
+
+        Console.CursorTop = 1;
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.CursorLeft = cursorLeft;
+        Console.WriteLine("Player 2's controls:");
+        Console.CursorLeft = cursorLeft;
+        Console.WriteLine("Up Arrow - Up");
+        Console.CursorLeft = cursorLeft;
+        Console.WriteLine("Left Arrow - Left");
+        Console.CursorLeft = cursorLeft;
+        Console.WriteLine("Down Arrow - Down");
+        Console.CursorLeft = cursorLeft;
+        Console.WriteLine("Right Arrow - Right");
+
+        Console.ReadKey();
+        Console.Clear();
+    }
+    static void ResetGame()
+    {
+        isUsed = new bool[Console.WindowWidth, Console.WindowHeight];
+        SetGameField();
+        firstPlayerDirection = right;
+        secondPlayerDirection = left;
+        Console.WriteLine("Press any key to start again...");
+        Console.ReadKey();
+        Console.Clear();
+        MovePlayers();
+    }
+
+
+    static bool DoesPlayerLose(int row, int col)
+    {
+        if (row < 0)
         {
-            bool isFullLine = true;
-            for (int col = 0; col < gameState.GetLength(1); col++)
-            {
-                if (gameState[row, col] == false)
-                {
-                    isFullLine = false;
-                    break;
-                }
-            }
-
-            if (isFullLine)
-            {
-                for (int nextLine = row - 1; nextLine >= 0; nextLine--)
-                {
-                    if (row < 0)
-                    {
-                        continue;
-                    }
-
-                    for (int colFromNextLine = 0; colFromNextLine < gameState.GetLength(1); colFromNextLine++)
-                    {
-                        gameState[nextLine + 1, colFromNextLine] =
-                            gameState[nextLine, colFromNextLine];
-                    }
-                }
-
-                for (int colLastLine = 0; colLastLine < gameState.GetLength(1); colLastLine++)
-                {
-                    gameState[0, colLastLine] = false;
-                }
-
-                linesRemoved++;
-            }
+            return true;
         }
-
-        return linesRemoved;
-    }
-
-    static void PlaceCurrentFigure()
-    {
-        for (int figRow = 0; figRow < currentFigure.GetLength(0); figRow++)
+        if (col < 0)
         {
-            for (int figCol = 0; figCol < currentFigure.GetLength(1); figCol++)
-            {
-                var row = currentFigureRow - 1 + figRow;
-                var col = currentFigureCol - 1 + figCol;
-                
-                if (currentFigure[figRow, figCol])
-                {
-                    gameState[row, col] = true;
-                }
-            }
+            return true;
         }
-    }
-
-    static bool CollisionDetection()
-    {
-        var currentFigureLowestRow =
-            currentFigureRow +
-            currentFigure.GetLength(0);
-
-        if (currentFigureLowestRow > TetrisHeight)
+        if (row >= Console.WindowHeight)
+        {
+            return true;
+        }
+        if (col >= Console.WindowWidth)
         {
             return true;
         }
 
-        for (int figRow = 0; figRow < currentFigure.GetLength(0); figRow++)
-        {
-            for (int figCol = 0; figCol < currentFigure.GetLength(1); figCol++)
-            {
-                var row = currentFigureRow + figRow;
-                var col = currentFigureCol - 1 + figCol;
 
-                if (row < 0)
-                {
-                    continue;
-                }
-                
-                if (gameState[row, col] == true &&
-                    currentFigure[figRow, figCol] == true)
-                {
-                    return true;
-                }
-            }
+        if (isUsed[col, row])
+        {
+            return true;
         }
+
 
         return false;
     }
 
-    static void PrintGameField()
+
+    static void SetGameField()
     {
-        for (int row = 1; row <= TetrisHeight; row++)
+        Console.WindowHeight = 30;
+        Console.BufferHeight = 30;
+
+
+        Console.WindowWidth = 100;
+        Console.BufferWidth = 100;
+
+
+        /*
+         * 
+         * ->>>>            <<<<-
+         * 
+         */
+        firstPlayerColumn = 0;
+        firstPlayerRow = Console.WindowHeight / 2;
+
+
+        secondPlayerColumn = Console.WindowWidth - 1;
+        secondPlayerRow = Console.WindowHeight / 2;
+    }
+
+
+    static void MovePlayers()
+    {
+        if (firstPlayerDirection == right)
         {
-            for (int col = 1; col <= TetrisWidth; col++)
-            {
-                if (gameState[row - 1, col - 1] == true)
-                {
-                    Print(row, col, '*');
-                }
-                else
-                {
-                    Print(row, col, ' ');
-                }
-            }
+            firstPlayerColumn++;
+        }
+        if (firstPlayerDirection == left)
+        {
+            firstPlayerColumn--;
+        }
+        if (firstPlayerDirection == up)
+        {
+            firstPlayerRow--;
+        }
+        if (firstPlayerDirection == down)
+        {
+            firstPlayerRow++;
+        }
+
+
+        if (secondPlayerDirection == right)
+        {
+            secondPlayerColumn++;
+        }
+        if (secondPlayerDirection == left)
+        {
+            secondPlayerColumn--;
+        }
+        if (secondPlayerDirection == up)
+        {
+            secondPlayerRow--;
+        }
+        if (secondPlayerDirection == down)
+        {
+            secondPlayerRow++;
         }
     }
 
-    static void PrintFigure(bool[,] figure,
-        int row, int col)
+
+    static void WriteOnPosition(int x, int y, char ch, ConsoleColor color)
     {
-        for (int x = 0; x < figure.GetLength(0); x++)
+        Console.ForegroundColor = color;
+        Console.SetCursorPosition(x, y);
+        Console.Write(ch);
+    }
+
+
+    static void ChangePlayerDirection(ConsoleKeyInfo key)
+    {
+        if (key.Key == ConsoleKey.W && firstPlayerDirection != down)
         {
-            for (int y = 0; y < figure.GetLength(1); y++)
-            {
-                if (figure[x, y] == true)
-                {
-                    Print(row + x, col + y, '*');
-                }
-            }
+            firstPlayerDirection = up;
         }
-    }
-
-    static void StartNewGame()
-    {
-        currentFigure = Figures[
-            random.Next(0, Figures.Length)];
-        nextFigure = Figures[
-            random.Next(0, Figures.Length)];
-    }
-
-    static void PrintInfoPanel()
-    {
-        Print(1, TetrisWidth + 4, "Next:");
-        for (int i = 2; i <= 5; i++)
+        if (key.Key == ConsoleKey.A && firstPlayerDirection != right)
         {
-            Print(i, TetrisWidth + 2, "         ");
+            firstPlayerDirection = left;
+        }
+        if (key.Key == ConsoleKey.D && firstPlayerDirection != left)
+        {
+            firstPlayerDirection = right;
+        }
+        if (key.Key == ConsoleKey.S && firstPlayerDirection != up)
+        {
+            firstPlayerDirection = down;
         }
 
-        PrintFigure(nextFigure, 2, TetrisWidth + 5);
 
-        Print(6, TetrisWidth + 4, "Score:");
-        int scoreStartposition = InfoPanelWidth / 2 - (Score.ToString().Length - 1) / 2;
-        scoreStartposition = scoreStartposition + TetrisWidth + 2;
-        Print(7, scoreStartposition - 1, Score);
-
-        Print(9, TetrisWidth + 4, "Level:");
-        Print(10, TetrisWidth + 6, Level);
-
-        Print(12, TetrisWidth + 3, "Controls");
-        Print(13, TetrisWidth + 2, "    ^     ");
-        Print(14, TetrisWidth + 2, "   < >    ");
-        Print(15, TetrisWidth + 2, "    v     ");
-        Print(16, TetrisWidth + 2, "  space   ");
-    }
-
-    static void PrintBorders()
-    {
-        for (int col = 0; col < GameWidth; col++)
+        if (key.Key == ConsoleKey.UpArrow && secondPlayerDirection != down)
         {
-            Print(0, col, BorderCharacter);
-            Print(GameHeight - 1, col, BorderCharacter);
+            secondPlayerDirection = up;
         }
-
-        for (int row = 0; row < GameHeight; row++)
+        if (key.Key == ConsoleKey.LeftArrow && secondPlayerDirection != right)
         {
-            Print(row, 0, BorderCharacter);
-            Print(row, TetrisWidth + 1, BorderCharacter);
-            Print(row, TetrisWidth + 1 + InfoPanelWidth + 1, BorderCharacter);
+            secondPlayerDirection = left;
         }
-    }
-
-    static void Print(int row, int col, object data)
-    {
-        Console.ForegroundColor = ConsoleColor.Yellow;
-        Console.SetCursorPosition(col, row);
-        Console.Write(data);
-    }
-
-    static void PlaySound()
-    {
-        const int soundLenght = 100;
-        Console.Beep(1320, soundLenght * 4);
-        Console.Beep(990, soundLenght * 2);
-        Console.Beep(1056, soundLenght * 2);
-        Console.Beep(1188, soundLenght * 2);
-        Console.Beep(1320, soundLenght);
-        Console.Beep(1188, soundLenght);
-        Console.Beep(1056, soundLenght * 2);
-        Console.Beep(990, soundLenght * 2);
-        Console.Beep(880, soundLenght * 4);
-        Console.Beep(880, soundLenght * 2);
-        Console.Beep(1056, soundLenght * 2);
-        Console.Beep(1320, soundLenght * 4);
-        Console.Beep(1188, soundLenght * 2);
-        Console.Beep(1056, soundLenght * 2);
-        Console.Beep(990, soundLenght * 6);
-        Console.Beep(1056, soundLenght * 2);
-        Console.Beep(1188, soundLenght * 4);
-        Console.Beep(1320, soundLenght * 4);
-        Console.Beep(1056, soundLenght * 4);
-        Console.Beep(880, soundLenght * 4);
-        Console.Beep(880, soundLenght * 4);
-        Thread.Sleep(soundLenght * 2);
-        Console.Beep(1188, soundLenght * 4);
-        Console.Beep(1408, soundLenght * 2);
-        Console.Beep(1760, soundLenght * 4);
-        Console.Beep(1584, soundLenght * 2);
-        Console.Beep(1408, soundLenght * 2);
-        Console.Beep(1320, soundLenght * 6);
-        Console.Beep(1056, soundLenght * 2);
-        Console.Beep(1320, soundLenght * 4);
-        Console.Beep(1188, soundLenght * 2);
-        Console.Beep(1056, soundLenght * 2);
-        Console.Beep(990, soundLenght * 4);
-        Console.Beep(990, soundLenght * 2);
-        Console.Beep(1056, soundLenght * 2);
-        Console.Beep(1188, soundLenght * 4);
-        Console.Beep(1320, soundLenght * 4);
-        Console.Beep(1056, soundLenght * 4);
-        Console.Beep(880, soundLenght * 4);
-        Console.Beep(880, soundLenght * 4);
-        Thread.Sleep(soundLenght * 4);
-        Console.Beep(1320, soundLenght * 4);
-        Console.Beep(990, soundLenght * 2);
-        Console.Beep(1056, soundLenght * 2);
-        Console.Beep(1188, soundLenght * 2);
-        Console.Beep(1320, soundLenght);
-        Console.Beep(1188, soundLenght);
-        Console.Beep(1056, soundLenght * 2);
-        Console.Beep(990, soundLenght * 2);
-        Console.Beep(880, soundLenght * 4);
-        Console.Beep(880, soundLenght * 2);
-        Console.Beep(1056, soundLenght * 2);
-        Console.Beep(1320, soundLenght * 4);
-        Console.Beep(1188, soundLenght * 2);
-        Console.Beep(1056, soundLenght * 2);
-        Console.Beep(990, soundLenght * 6);
-        Console.Beep(1056, soundLenght * 2);
-        Console.Beep(1188, soundLenght * 4);
-        Console.Beep(1320, soundLenght * 4);
-        Console.Beep(1056, soundLenght * 4);
-        Console.Beep(880, soundLenght * 4);
-        Console.Beep(880, soundLenght * 4);
-        Thread.Sleep(soundLenght * 2);
-        Console.Beep(1188, soundLenght * 4);
-        Console.Beep(1408, soundLenght * 2);
-        Console.Beep(1760, soundLenght * 4);
-        Console.Beep(1584, soundLenght * 2);
-        Console.Beep(1408, soundLenght * 2);
-        Console.Beep(1320, soundLenght * 6);
-        Console.Beep(1056, soundLenght * 2);
-        Console.Beep(1320, soundLenght * 4);
-        Console.Beep(1188, soundLenght * 2);
-        Console.Beep(1056, soundLenght * 2);
-        Console.Beep(990, soundLenght * 4);
-        Console.Beep(990, soundLenght * 2);
-        Console.Beep(1056, soundLenght * 2);
-        Console.Beep(1188, soundLenght * 4);
-        Console.Beep(1320, soundLenght * 4);
-        Console.Beep(1056, soundLenght * 4);
-        Console.Beep(880, soundLenght * 4);
-        Console.Beep(880, soundLenght * 4);
-        Thread.Sleep(soundLenght * 4);
-        Console.Beep(660, soundLenght * 8);
-        Console.Beep(528, soundLenght * 8);
-        Console.Beep(594, soundLenght * 8);
-        Console.Beep(495, soundLenght * 8);
-        Console.Beep(528, soundLenght * 8);
-        Console.Beep(440, soundLenght * 8);
-        Console.Beep(419, soundLenght * 8);
-        Console.Beep(495, soundLenght * 8);
-        Console.Beep(660, soundLenght * 8);
-        Console.Beep(528, soundLenght * 8);
-        Console.Beep(594, soundLenght * 8);
-        Console.Beep(495, soundLenght * 8);
-        Console.Beep(528, soundLenght * 4);
-        Console.Beep(660, soundLenght * 4);
-        Console.Beep(880, soundLenght * 8);
-        Console.Beep(838, soundLenght * 16);
-        Console.Beep(660, soundLenght * 8);
-        Console.Beep(528, soundLenght * 8);
-        Console.Beep(594, soundLenght * 8);
-        Console.Beep(495, soundLenght * 8);
-        Console.Beep(528, soundLenght * 8);
-        Console.Beep(440, soundLenght * 8);
-        Console.Beep(419, soundLenght * 8);
-        Console.Beep(495, soundLenght * 8);
-        Console.Beep(660, soundLenght * 8);
-        Console.Beep(528, soundLenght * 8);
-        Console.Beep(594, soundLenght * 8);
-        Console.Beep(495, soundLenght * 8);
-        Console.Beep(528, soundLenght * 4);
-        Console.Beep(660, soundLenght * 4);
-        Console.Beep(880, soundLenght * 8);
-        Console.Beep(838, soundLenght * 16);
+        if (key.Key == ConsoleKey.RightArrow && secondPlayerDirection != left)
+        {
+            secondPlayerDirection = right;
+        }
+        if (key.Key == ConsoleKey.DownArrow && secondPlayerDirection != up)
+        {
+            secondPlayerDirection = down;
+        }
     }
 }
+
+/*
+******
+     ***************
+  ####            **
+ #####
+ * 
+ * 
+ *->>>              <<-
+ * 
+ * 
+ * 
+*/
+
+/*
+ W         ^
+ASD       <v>
+*/
